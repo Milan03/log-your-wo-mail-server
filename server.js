@@ -18,10 +18,8 @@ app.use(function(req, res, next) {
 });
 app.use(bodyParser.json());
 
-//start application server on port 3000
-app.listen(3000, () => {
-    console.log("The server started on port 3000");
-});
+//start application server on heroku assigned port or port 3000 if local
+app.listen(process.env.PORT || 3000)
 
 // define a sendmail endpoint, which will send emails and response with the corresponding status
 app.post("/sendmail", (req, res) => {
