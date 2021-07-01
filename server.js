@@ -9,7 +9,7 @@ const fs = require("fs");
 const app = express();
 
 //configure the Express middleware to accept CORS requests and parse request body into JSON
-app.use(cors({ origin: "*" }));
+app.use(cors({ origin: "https://milan03.github.io" }));
 app.use(bodyParser.json());
 
 //start application server on port 3000
