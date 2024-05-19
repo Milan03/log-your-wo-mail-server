@@ -29,8 +29,6 @@ app.post("/sendmail", (req, res) => {
     let emailReq = req.body;
     sendMail(emailReq, (err, info) => {
         if (err) {
-            console.log(`${process.env.EMAIL}`);
-            console.log(`${process.env.EMAIL_PASS}`);
             console.log(err);
             res.status(400).send({ error: "Failed to send email" });
         } else {
@@ -44,12 +42,9 @@ app.post("/sendmail", (req, res) => {
 const sendMail = (emailReq, callback) => {
     const transporter = nodemailer.createTransport({
         service: 'gmail',
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
         auth: {
-            user: process.env.EMAIL, // Use environment variables
-            pass: process.env.EMAIL_PASS // Use environment variables
+            user: process.env.EMAIL,
+            pass: process.env.EMAIL_PASS
         }
     });
 
