@@ -1,42 +1,38 @@
-//import modules installed at the previous step. We need them to run Node.js server and send emails
+// Import modules
+require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
 const fs = require("fs");
+const path = require("path");
 
-// create a new Express application instance
+// Create a new Express application instance
 const app = express();
 
-//configure the Express middleware to accept CORS requests and parse request body into JSON
-// Set up CORS
+// Configure the Express middleware to accept CORS requests and parse request body into JSON
 app.use(cors({
-    origin: true, // "true" will copy the domain of the request back
-                  // to the reply. If you need more control than this
-                  // use a function.
-
-    credentials: true, // This MUST be "true" if your endpoint is
-                       // authenticated via either a session cookie
-                       // or Authorization header. Otherwise the
-                       // browser will block the response.
-
-    methods: 'POST,GET,PUT,OPTIONS,DELETE' // Make sure you're not blocking
-                                           // pre-flight OPTIONS requests
+    origin: true,
+    credentials: true,
+    methods: 'POST,GET,PUT,OPTIONS,DELETE'
 }));
 app.use(bodyParser.json());
 
-//start application server on heroku assigned port or port 3000 if local
-app.listen(process.env.PORT || 3000)
+// Start application server on Heroku assigned port or port 3000 if local
+app.listen(process.env.PORT || 3000, () => {
+    console.log(`Server is running on port ${process.env.PORT || 3000}`);
+});
 
-// define a sendmail endpoint, which will send emails and response with the corresponding status
+// Define a sendmail endpoint, which will send emails and respond with the corresponding status
 app.post("/sendmail", (req, res) => {
     console.log("request came");
     let emailReq = req.body;
     sendMail(emailReq, (err, info) => {
         if (err) {
+            console.log(`${process.env.EMAIL}`);
+            console.log(`${process.env.EMAIL_PASS}`);
             console.log(err);
-            res.status(400);
-            res.send({ error: "Failed to send email" });
+            res.status(400).send({ error: "Failed to send email" });
         } else {
             console.log("Email has been sent");
             res.send(info);
@@ -44,36 +40,40 @@ app.post("/sendmail", (req, res) => {
     });
 });
 
+// Function to send email
 const sendMail = (emailReq, callback) => {
     const transporter = nodemailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 587,
-        secure: false,
+        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: {
-            user: "noreply@logyourworkout.app",
-            pass: "a34DJ8`8"
+            user: process.env.EMAIL, // Use environment variables
+            pass: process.env.EMAIL_PASS // Use environment variables
         }
     });
 
-    fs.writeFile(`${emailReq.subject}.pdf`, emailReq.attachments[0], 'base64', error => {
+    const pdfPath = path.join(__dirname, `${emailReq.subject}.pdf`);
+
+    fs.writeFile(pdfPath, emailReq.attachments[0], 'base64', error => {
         if (error) {
-            throw error;
+            console.log('Error saving file:', error);
+            return callback(error);
         } else {
-            console.log('base64 saved!');
+            console.log('Base64 saved!');
+            let mailOptions = {
+                from: emailReq.fromEmailAddress,
+                to: emailReq.toEmailAddress,
+                subject: emailReq.subject,
+                html: emailReq.body,
+                attachments: [{
+                    filename: `${emailReq.subject}.pdf`,
+                    path: pdfPath,
+                    contentType: 'application/pdf'
+                }]
+            };
+
+            transporter.sendMail(mailOptions, callback);
         }
     });
-
-    let mailOptions = {
-        from: emailReq.fromEmailAddress,
-        to: emailReq.toEmailAddress,
-        subject: emailReq.subject,
-        html: emailReq.body,
-        attachments: [{
-            filename: `${emailReq.subject}.pdf`,
-            path: '\./' + `${emailReq.subject}.pdf`,
-            contentType: 'application/pdf'
-        }]
-    }
-
-    transporter.sendMail(mailOptions, callback);
 };
