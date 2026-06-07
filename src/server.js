@@ -1,74 +1,47 @@
-// Import modules
-require('dotenv').config();
-const express = require("express");
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const nodemailer = require("nodemailer");
-const fs = require("fs");
-const path = require("path");
+require('dotenv').config({ quiet: true });
+const express = require('express');
+const cors = require('cors');
+const { EmailRequestError, sendWorkoutEmail } = require('../functions/mail');
 
-// Create a new Express application instance
 const app = express();
+const port = process.env.PORT || 3000;
 
-// Configure the Express middleware to accept CORS requests and parse request body into JSON
 app.use(cors({
     origin: true,
-    credentials: true,
-    methods: 'POST,GET,PUT,OPTIONS,DELETE'
+    methods: ['POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type']
 }));
-app.use(bodyParser.json());
+app.use(express.json({ limit: '6mb' }));
 
-// Start application server on Heroku assigned port or port 3000 if local
-app.listen(process.env.PORT || 3000, () => {
-    console.log(`Server is running on port ${process.env.PORT || 3000}`);
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
 });
 
-// Define a sendmail endpoint, which will send emails and respond with the corresponding status
-app.post("/sendmail", (req, res) => {
-    console.log("request came");
-    let emailReq = req.body;
-    sendMail(emailReq, (err, info) => {
-        if (err) {
-            console.log(err);
-            res.status(400).send({ error: "Failed to send email" });
-        } else {
-            console.log("Email has been sent");
-            res.send(info);
-        }
-    });
+app.post('/sendmail', async (req, res) => {
+    try {
+        const info = await sendWorkoutEmail(req.body);
+        res.json({
+            message: 'Email sent',
+            messageId: info.messageId
+        });
+    } catch (error) {
+        console.error('Unable to send workout email:', error);
+        const configurationError = error.message === 'Email server credentials are not configured';
+        const requestError = error instanceof EmailRequestError;
+        res.status(requestError ? 400 : configurationError ? 500 : 502).json({
+            error: requestError
+                ? 'Invalid email request'
+                : configurationError
+                    ? 'Email server is not configured'
+                    : 'Email provider rejected the message'
+        });
+    }
 });
 
-// Function to send email
-const sendMail = (emailReq, callback) => {
-    const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.EMAIL,
-            pass: process.env.EMAIL_PASS
-        }
+if (require.main === module) {
+    app.listen(port, () => {
+        console.log(`Server is running on port ${port}`);
     });
+}
 
-    const pdfPath = path.join(__dirname, `${emailReq.subject}.pdf`);
-
-    fs.writeFile(pdfPath, emailReq.attachments[0], 'base64', error => {
-        if (error) {
-            console.log('Error saving file:', error);
-            return callback(error);
-        } else {
-            console.log('Base64 saved!');
-            let mailOptions = {
-                from: emailReq.fromEmailAddress,
-                to: emailReq.toEmailAddress,
-                subject: emailReq.subject,
-                html: emailReq.body,
-                attachments: [{
-                    filename: `${emailReq.subject}.pdf`,
-                    path: pdfPath,
-                    contentType: 'application/pdf'
-                }]
-            };
-
-            transporter.sendMail(mailOptions, callback);
-        }
-    });
-};
+module.exports = app;

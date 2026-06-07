@@ -1,17 +1,17 @@
-require('dotenv').config();
-const nodemailer = require("nodemailer");
-const fs = require("fs");
-const path = require("path");
+require('dotenv').config({ quiet: true });
+const { EmailRequestError, sendWorkoutEmail } = require('./mail');
+
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+};
 
 exports.handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {
         return {
-            statusCode: 200,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
-            },
+            statusCode: 204,
+            headers: corsHeaders,
             body: ''
         };
     }
@@ -19,75 +19,36 @@ exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') {
         return {
             statusCode: 405,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
-            body: JSON.stringify({ error: 'Method not allowed' }),
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Method not allowed' })
         };
     }
 
-    const emailReq = JSON.parse(event.body);
-    const result = await sendMail(emailReq);
-
-    if (result.error) {
-        return {
-            statusCode: 400,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
-            body: JSON.stringify({ error: "Failed to send email" }),
-        };
-    } else {
+    try {
+        const emailReq = JSON.parse(event.body || '{}');
+        const info = await sendWorkoutEmail(emailReq);
         return {
             statusCode: 200,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
-            body: JSON.stringify(result.info),
+            headers: corsHeaders,
+            body: JSON.stringify({
+                message: 'Email sent',
+                messageId: info.messageId
+            })
+        };
+    } catch (error) {
+        console.error('Unable to send workout email:', error);
+        const configurationError = error.message === 'Email server credentials are not configured';
+        const requestError = error instanceof EmailRequestError || error instanceof SyntaxError;
+        return {
+            statusCode: requestError ? 400 : configurationError ? 500 : 502,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                error: requestError
+                    ? 'Invalid email request'
+                    : configurationError
+                        ? 'Email server is not configured'
+                        : 'Email provider rejected the message'
+            })
         };
     }
-};
-
-const sendMail = (emailReq) => {
-    return new Promise((resolve, reject) => {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL,
-                pass: process.env.EMAIL_PASS
-            }
-        });
-
-        const pdfPath = path.join('/tmp', `${emailReq.subject}.pdf`);
-
-        fs.writeFile(pdfPath, emailReq.attachments[0], 'base64', error => {
-            if (error) {
-                console.log('Error saving file:', error);
-                return reject({ error });
-            } else {
-                console.log('Base64 saved!');
-                let mailOptions = {
-                    from: emailReq.fromEmailAddress,
-                    to: emailReq.toEmailAddress,
-                    subject: emailReq.subject,
-                    html: emailReq.body,
-                    attachments: [{
-                        filename: `${emailReq.subject}.pdf`,
-                        path: pdfPath,
-                        contentType: 'application/pdf'
-                    }]
-                };
-
-                transporter.sendMail(mailOptions, (err, info) => {
-                    if (err) {
-                        console.log(err);
-                        reject({ error: err });
-                    } else {
-                        console.log("Email has been sent");
-                        resolve({ info });
-                    }
-                });
-            }
-        });
-    });
 };
