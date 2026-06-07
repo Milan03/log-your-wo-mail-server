@@ -1,27 +1,25 @@
 # Log Your Workout Mail Server
 
 Email service for Log Your Workout. It sends generated workout PDFs through
-Gmail and can run as a local Express server or as a Netlify function.
+Resend and can run as a local Express server or as a Netlify function.
 
 ## Requirements
 
 - Node.js 20.12.2 or newer
-- A Google account with two-step verification
-- A Google app password
+- A verified domain in Resend
+- A Resend API key with sending access
 
 ## Configuration
 
 Create `.env` from `.env.example`:
 
 ```env
-EMAIL=your-google-account@example.com
-EMAIL_PASS=your-google-app-password
+RESEND_API_KEY=re_your_resend_api_key
+FROM_EMAIL=noreply@logyourworkout.app
 ```
 
-Use the Google app password without spaces. The regular account password will
-not work.
-
-Configure the same `EMAIL` and `EMAIL_PASS` variables in Netlify for production.
+Configure `RESEND_API_KEY` in Netlify for production. The sender defaults to
+`noreply@logyourworkout.app`; set `FROM_EMAIL` only if you need to override it.
 Never commit `.env` or real credentials.
 
 ## Development
@@ -57,14 +55,25 @@ Git. Netlify deploys `functions/sendmail.js` at:
 
 The `/sendmail` redirect is configured in `netlify.toml`.
 
+### Production environment
+
+In the Netlify site that deploys this repository:
+
+1. Open **Project configuration > Environment variables**.
+2. Add `RESEND_API_KEY` with the API key from Resend.
+3. Add `FROM_EMAIL` with `noreply@logyourworkout.app`.
+4. Select **Deploys > Trigger deploy > Deploy site**.
+
+The API key belongs only in this mail-server site. Do not put it in the Angular
+application or any `environment.ts` file because browser users could read it.
+
 ## Troubleshooting
 
-- `534 5.7.9 WebLoginRequired`: replace `EMAIL_PASS` with a current Google app
-  password locally and in Netlify, then redeploy.
 - `400 Invalid email request`: inspect the recipient and PDF payload.
-- `500 Email server is not configured`: verify `EMAIL` and `EMAIL_PASS`.
+- `500 Email server is not configured`: verify `RESEND_API_KEY`.
 - `502 Email provider rejected the message`: inspect the Netlify function logs
-  and the sending Google account.
+  and the Resend email logs. Confirm that `logyourworkout.app` is verified in
+  Resend and that `FROM_EMAIL` uses that domain.
 
 The maximum decoded PDF size is 4 MB so the base64 JSON request remains within
 Netlify's synchronous function request limit.

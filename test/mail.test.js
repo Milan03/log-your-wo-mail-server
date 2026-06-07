@@ -51,7 +51,6 @@ test('uses the injected transporter without writing a temporary file', async () 
     let sentOptions;
     const info = await sendWorkoutEmail(createRequest(), {
         senderEmail: 'sender@example.com',
-        senderPassword: 'app-password',
         transporter: {
             sendMail: async options => {
                 sentOptions = options;
@@ -63,6 +62,23 @@ test('uses the injected transporter without writing a temporary file', async () 
     assert.equal(info.messageId, 'test-message-id');
     assert.equal(sentOptions.attachments[0].filename, 'sunday-workout-2026-06-07.pdf');
     assert.ok(Buffer.isBuffer(sentOptions.attachments[0].content));
+});
+
+test('uses the Log Your Workout noreply address by default', async () => {
+    let sentOptions;
+    await sendWorkoutEmail(createRequest(), {
+        transporter: {
+            sendMail: async options => {
+                sentOptions = options;
+                return { messageId: 'test-message-id' };
+            }
+        }
+    });
+
+    assert.equal(
+        sentOptions.from,
+        '"Log Your Workout" <noreply@logyourworkout.app>'
+    );
 });
 
 test('sanitizes missing and unusual attachment filenames', () => {
