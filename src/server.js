@@ -1,7 +1,7 @@
 require('dotenv').config({ quiet: true });
 const express = require('express');
 const cors = require('cors');
-const { EmailRequestError, sendWorkoutEmail } = require('../functions/mail');
+const { EmailRequestError, sendWorkoutEmail } = require('../lib/mail');
 
 const app = express();
 const port = process.env.PORT || 3000;

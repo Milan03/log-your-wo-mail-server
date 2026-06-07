@@ -1,5 +1,5 @@
 require('dotenv').config({ quiet: true });
-const { EmailRequestError, sendWorkoutEmail } = require('./mail');
+const { EmailRequestError, sendWorkoutEmail } = require('../lib/mail');
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',

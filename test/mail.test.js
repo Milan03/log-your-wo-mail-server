@@ -7,7 +7,7 @@ const {
     sanitizePdfFilename,
     sendWorkoutEmail,
     validateEmailRequest
-} = require('./mail');
+} = require('../lib/mail');
 
 const pdfBase64 = Buffer.from('%PDF-1.4\nworkout').toString('base64');
 

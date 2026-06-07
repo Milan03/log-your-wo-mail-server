@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { handler } = require('./sendmail');
+const { handler } = require('../functions/sendmail');
 
 test('returns CORS headers for preflight requests', async () => {
     const response = await handler({ httpMethod: 'OPTIONS' });
